@@ -1,0 +1,26 @@
+[package]
+authors = ["Clover You <hi@clovu.me>"]
+categories = [
+  "development-tools::cargo-plugins",
+  "command-line-utilities",
+  "command-line-interface",
+]
+description = "A Cargo subcommand to automatically upgrade dependencies in your Rust projects."
+edition = "2024"
+exclude = [
+  "/.DS_Store",
+  "/.editorconfig",
+  "/.github/",
+  "/.gitignore",
+  "/.vscode/",
+  "/target/",
+]
+keywords = ["cargo", "upgrade", "update", "crate", "dependency", "version"]
+license-file = "LICENSE"
+name = "cargo-upgrade"
+readme = "README.md"
+repository = "https://github.com/clovu/cargo-upgrade"
+version = "0.0.1"
+
+[dependencies]
+dotenvy = "0.15.7"
