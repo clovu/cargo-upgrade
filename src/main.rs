@@ -1,3 +1,4 @@
+mod cli;
 mod dependency;
 mod error;
 mod manifest;
@@ -9,9 +10,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use error::Result;
-use manifest::{load_manifest, resolve_manifest_path};
+use manifest::load_manifest;
+use manifest::resolve_manifest_path;
 use registry::fetch_latest_versions;
-use update::{UpgradeDecision, apply_updates, write_manifest_once};
+use update::UpgradeDecision;
+use update::apply_updates;
+use update::write_manifest_once;
 use versioning::select_target_version;
 
 #[tokio::main]
