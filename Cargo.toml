@@ -16,6 +16,7 @@ exclude = [
   "/target/",
 ]
 keywords = ["cargo", "upgrade", "update", "crate", "dependency", "version"]
+license = "MIT"
 license-file = "LICENSE"
 name = "cargo-upgrade"
 readme = "README.md"
