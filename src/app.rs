@@ -44,7 +44,6 @@ pub(crate) async fn run(cli: Cli) -> ExitCode {
 }
 
 async fn try_run(cli: Cli) -> Result<()> {
-    println!("input options: {cli:#?}");
     ensure_supported_options(&cli)?;
 
     let mut manifest = LoadedManifest::load()?;
