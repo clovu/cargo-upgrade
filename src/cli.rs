@@ -84,5 +84,5 @@ pub struct Cli {
         value_name = "PACKAGE",
         help = "Only upgrade selected packages"
     )]
-    pub packages: Vec<String>,
+    pub crates: Vec<String>,
 }

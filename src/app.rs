@@ -1,5 +1,6 @@
 use crate::cli::Cli;
 use crate::dependency::DependencyUpdate;
+use crate::dependency::ManifestDependency;
 use crate::dependency::collect_manifest_dependencies;
 use crate::error::Result;
 use crate::manifest::LoadedManifest;
@@ -9,6 +10,28 @@ use crate::versioning::rewrite_requirement;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
+
+fn filter_dependencies(
+    mut dependencies: Vec<ManifestDependency>,
+    crates: &[String],
+) -> Vec<ManifestDependency> {
+    if crates.is_empty() {
+        dependencies
+    } else {
+        let crates: std::collections::HashSet<_> = crates.iter().map(|it| it.trim()).collect();
+
+        dependencies.retain(|it| crates.contains(it.name.trim()));
+
+        dependencies
+    }
+}
+
+fn collect_filtered_dependencies(
+    manifest: &cargo_toml::Manifest,
+    crates: &[String],
+) -> Vec<ManifestDependency> {
+    filter_dependencies(collect_manifest_dependencies(manifest), crates)
+}
 
 pub(crate) async fn run(cli: Cli) -> ExitCode {
     match try_run(cli).await {
@@ -21,10 +44,11 @@ pub(crate) async fn run(cli: Cli) -> ExitCode {
 }
 
 async fn try_run(cli: Cli) -> Result<()> {
+    println!("input options: {cli:#?}");
     ensure_supported_options(&cli)?;
 
     let mut manifest = LoadedManifest::load()?;
-    let dependencies = collect_manifest_dependencies(manifest.manifest());
+    let dependencies = collect_filtered_dependencies(manifest.manifest(), &cli.crates);
     let releases = fetch_available_releases(Arc::new(new_registry_client()?), dependencies).await;
     let plan = build_upgrade_plan(releases, cli.latest)?;
 
@@ -93,9 +117,6 @@ fn build_upgrade_plan(
 fn ensure_supported_options(cli: &Cli) -> Result<()> {
     let mut unsupported = Vec::new();
 
-    if !cli.packages.is_empty() {
-        unsupported.push("package filters");
-    }
     if cli.recursive {
         unsupported.push("--recursive");
     }
