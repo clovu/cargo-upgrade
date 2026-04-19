@@ -1,67 +1,97 @@
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum CargoTable {
+pub(crate) enum DependencySection {
     Dependencies,
     DevDependencies,
     BuildDependencies,
 }
 
-impl CargoTable {
+impl DependencySection {
     pub(crate) fn toml_key(self) -> &'static str {
         match self {
-            CargoTable::Dependencies => "dependencies",
-            CargoTable::DevDependencies => "dev-dependencies",
-            CargoTable::BuildDependencies => "build-dependencies",
+            Self::Dependencies => "dependencies",
+            Self::DevDependencies => "dev-dependencies",
+            Self::BuildDependencies => "build-dependencies",
         }
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct DependencyCandidate {
-    pub(crate) crate_name: String,
-    pub(crate) current_requirement: String,
-    pub(crate) table: CargoTable,
+pub(crate) struct ManifestDependency {
+    pub(crate) name: String,
+    pub(crate) requirement: String,
+    pub(crate) section: DependencySection,
 }
 
-fn dependency_requirement(dep: &cargo_toml::Dependency) -> Option<String> {
-    match dep {
+#[derive(Debug)]
+pub(crate) struct DependencyUpdate {
+    pub(crate) name: String,
+    pub(crate) section: DependencySection,
+    pub(crate) current_requirement: String,
+    pub(crate) target_requirement: String,
+}
+
+impl DependencyUpdate {
+    pub(crate) fn new(
+        name: String,
+        section: DependencySection,
+        current_requirement: String,
+        target_requirement: String,
+    ) -> Self {
+        Self {
+            name,
+            section,
+            current_requirement,
+            target_requirement,
+        }
+    }
+}
+
+fn requirement_of(dependency: &cargo_toml::Dependency) -> Option<String> {
+    match dependency {
         cargo_toml::Dependency::Simple(version) => Some(version.clone()),
         cargo_toml::Dependency::Inherited(_) => None,
         cargo_toml::Dependency::Detailed(detail) => detail.version.clone(),
     }
 }
 
-fn collect_from_table(
-    cargo_toml: &cargo_toml::Manifest,
-    table: CargoTable,
-) -> Vec<DependencyCandidate> {
-    let dependencies = match table {
-        CargoTable::Dependencies => &cargo_toml.dependencies,
-        CargoTable::DevDependencies => &cargo_toml.dev_dependencies,
-        CargoTable::BuildDependencies => &cargo_toml.build_dependencies,
+fn collect_from_section(
+    manifest: &cargo_toml::Manifest,
+    section: DependencySection,
+) -> Vec<ManifestDependency> {
+    let dependencies = match section {
+        DependencySection::Dependencies => &manifest.dependencies,
+        DependencySection::DevDependencies => &manifest.dev_dependencies,
+        DependencySection::BuildDependencies => &manifest.build_dependencies,
     };
 
     dependencies
         .iter()
-        .filter_map(|(crate_name, dependency)| {
-            let current_requirement = dependency_requirement(dependency)?;
-            Some(DependencyCandidate {
-                crate_name: crate_name.to_string(),
-                current_requirement,
-                table,
+        .filter_map(|(name, dependency)| {
+            let requirement = requirement_of(dependency)?;
+            Some(ManifestDependency {
+                name: name.to_string(),
+                requirement,
+                section,
             })
         })
         .collect()
 }
 
-pub(crate) fn collect_upgradable_dependencies(
-    cargo_toml: &cargo_toml::Manifest,
-) -> Vec<DependencyCandidate> {
-    let mut result = Vec::new();
-    result.extend(collect_from_table(cargo_toml, CargoTable::Dependencies));
-    result.extend(collect_from_table(cargo_toml, CargoTable::DevDependencies));
-    result.extend(collect_from_table(
-        cargo_toml,
-        CargoTable::BuildDependencies,
+pub(crate) fn collect_manifest_dependencies(
+    manifest: &cargo_toml::Manifest,
+) -> Vec<ManifestDependency> {
+    let mut dependencies = Vec::new();
+    dependencies.extend(collect_from_section(
+        manifest,
+        DependencySection::Dependencies,
     ));
-    result
+    dependencies.extend(collect_from_section(
+        manifest,
+        DependencySection::DevDependencies,
+    ));
+    dependencies.extend(collect_from_section(
+        manifest,
+        DependencySection::BuildDependencies,
+    ));
+    dependencies
 }

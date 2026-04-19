@@ -1,42 +1,43 @@
-use crate::dependency::DependencyCandidate;
+use crate::dependency::ManifestDependency;
 use futures::StreamExt;
+use semver::Version;
 use std::sync::Arc;
 
 #[derive(Debug)]
-pub(crate) struct RegistryLookup {
-    pub(crate) candidate: DependencyCandidate,
-    pub(crate) latest_versions: std::result::Result<Vec<String>, String>,
+pub(crate) struct VersionResolution {
+    pub(crate) dependency: ManifestDependency,
+    pub(crate) releases: std::result::Result<Vec<Version>, String>,
 }
 
-pub(crate) async fn fetch_latest_versions(
+pub(crate) async fn fetch_available_releases(
     client: Arc<crates_io_api::AsyncClient>,
-    dependencies: Vec<DependencyCandidate>,
-) -> Vec<RegistryLookup> {
+    dependencies: Vec<ManifestDependency>,
+) -> Vec<VersionResolution> {
     let mut tasks = futures::stream::FuturesUnordered::new();
 
     for dependency in dependencies {
         let client = client.clone();
+
         tasks.push(async move {
-            let crate_name = dependency.crate_name.clone();
-            let latest_versions = match client.get_crate(&crate_name).await {
+            let releases = match client.get_crate(&dependency.name).await {
                 Ok(crate_info) => Ok(crate_info
                     .versions
                     .into_iter()
-                    .map(|version| version.num)
+                    .filter_map(|version| Version::parse(&version.num).ok())
                     .collect()),
-                Err(err) => Err(err.to_string()),
+                Err(error) => Err(error.to_string()),
             };
 
-            RegistryLookup {
-                candidate: dependency,
-                latest_versions,
+            VersionResolution {
+                dependency,
+                releases,
             }
         });
     }
 
-    let mut results = Vec::new();
-    while let Some(result) = tasks.next().await {
-        results.push(result);
+    let mut resolutions = Vec::new();
+    while let Some(resolution) = tasks.next().await {
+        resolutions.push(resolution);
     }
-    results
+    resolutions
 }
