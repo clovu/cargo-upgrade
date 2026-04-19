@@ -5,7 +5,7 @@ categories = [
   "command-line-utilities",
   "command-line-interface",
 ]
-description = "A Cargo subcommand to automatically upgrade dependencies in your Rust projects."
+description = "A Cargo subcommand inspired by pnpm upgrade for refreshing dependency requirements in Cargo.toml."
 edition = "2024"
 exclude = [
   "/.DS_Store",
@@ -17,7 +17,6 @@ exclude = [
 ]
 keywords = ["cargo", "upgrade", "update", "crate", "dependency", "version"]
 license = "MIT"
-license-file = "LICENSE"
 name = "cargo-upgrade"
 readme = "README.md"
 repository = "https://github.com/clovu/cargo-upgrade"
@@ -27,7 +26,6 @@ version = "0.0.1"
 cargo_toml = "0.22.3"
 clap = { version = "4.6.1", features = ["derive"] }
 crates_io_api = "0.12.0"
-dotenvy = "0.15.7"
 futures = "0.3.32"
 semver = "1.0.28"
 tokio = { version = "1.51.0", features = ["macros", "rt-multi-thread"] }
