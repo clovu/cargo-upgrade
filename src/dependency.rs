@@ -21,6 +21,17 @@ impl DependencySection {
             Self::BuildDependencies => "buildDependencies",
         }
     }
+
+    pub(crate) fn is_normal_build(self) -> bool {
+        match self {
+            Self::Dependencies | Self::BuildDependencies => true,
+            Self::DevDependencies => false,
+        }
+    }
+
+    pub(crate) fn is_development(self) -> bool {
+        matches!(self, Self::DevDependencies)
+    }
 }
 
 #[derive(Clone, Debug)]

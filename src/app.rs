@@ -16,26 +16,34 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
+fn section_is_selected(section: DependencySection, cli: &Cli) -> bool {
+    if cli.prod {
+        section.is_normal_build()
+    } else if cli.dev {
+        section.is_development()
+    } else {
+        true
+    }
+}
+
 fn filter_dependencies(
     mut dependencies: Vec<ManifestDependency>,
-    crates: &[String],
+    cli: &Cli,
 ) -> Vec<ManifestDependency> {
-    if crates.is_empty() {
-        dependencies
-    } else {
-        let crates: std::collections::HashSet<_> = crates.iter().map(|it| it.trim()).collect();
+    let crates: std::collections::HashSet<_> = cli.crates.iter().map(|it| it.trim()).collect();
 
-        dependencies.retain(|it| crates.contains(it.name.trim()));
-
-        dependencies
-    }
+    dependencies.retain(|it| {
+        section_is_selected(it.section, cli)
+            && (crates.is_empty() || crates.contains(it.name.trim()))
+    });
+    dependencies
 }
 
 fn collect_filtered_dependencies(
     manifest: &cargo_toml::Manifest,
-    crates: &[String],
+    cli: &Cli,
 ) -> Vec<ManifestDependency> {
-    filter_dependencies(collect_manifest_dependencies(manifest), crates)
+    filter_dependencies(collect_manifest_dependencies(manifest), cli)
 }
 
 pub(crate) async fn run(cli: Cli) -> ExitCode {
@@ -52,7 +60,7 @@ async fn try_run(cli: Cli) -> Result<()> {
     ensure_supported_options(&cli)?;
 
     let mut manifest = LoadedManifest::load()?;
-    let dependencies = collect_filtered_dependencies(manifest.manifest(), &cli.crates);
+    let dependencies = collect_filtered_dependencies(manifest.manifest(), &cli);
     let releases = fetch_available_releases(Arc::new(new_registry_client()?), dependencies).await;
     let plan = build_upgrade_plan(releases, cli.latest)?;
 
@@ -256,12 +264,6 @@ fn ensure_supported_options(cli: &Cli) -> Result<()> {
     if cli.workspace {
         unsupported.push("--workspace");
     }
-    if cli.prod {
-        unsupported.push("--prod");
-    }
-    if cli.dev {
-        unsupported.push("--dev");
-    }
     if cli.no_optional {
         unsupported.push("--no-optional");
     }
@@ -309,11 +311,39 @@ fn new_registry_client() -> Result<crates_io_api::AsyncClient> {
 #[cfg(test)]
 mod tests {
     use super::build_update_checklist_groups;
+    use super::filter_dependencies;
     use super::group_updates_by_section;
     use super::selected_updates_from_selection;
+    use crate::cli::Cli;
     use crate::dependency::DependencySection;
     use crate::dependency::DependencyUpdate;
+    use crate::dependency::ManifestDependency;
     use crate::grouped_checklist::ChecklistSelection;
+
+    fn cli(prod: bool, dev: bool, crates: &[&str]) -> Cli {
+        Cli {
+            recursive: false,
+            latest: false,
+            global: false,
+            workspace: false,
+            prod,
+            dev,
+            no_optional: false,
+            interactive: false,
+            dry_run: false,
+            filter: Vec::new(),
+            depth: None,
+            crates: crates.iter().map(|name| name.to_string()).collect(),
+        }
+    }
+
+    fn dependency(name: &str, section: DependencySection) -> ManifestDependency {
+        ManifestDependency {
+            name: name.to_string(),
+            requirement: "1.0".to_string(),
+            section,
+        }
+    }
 
     fn update(
         name: &str,
@@ -327,6 +357,63 @@ mod tests {
             current.to_string(),
             target.to_string(),
         )
+    }
+
+    #[test]
+    fn filters_to_normal_and_build_sections_for_production_dependencies() {
+        let dependencies = vec![
+            dependency("tokio", DependencySection::Dependencies),
+            dependency("serde", DependencySection::DevDependencies),
+            dependency("cc", DependencySection::BuildDependencies),
+        ];
+
+        let filtered = filter_dependencies(dependencies, &cli(true, false, &[]));
+
+        assert_eq!(
+            filtered
+                .iter()
+                .map(|it| it.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["tokio", "cc"]
+        );
+    }
+
+    #[test]
+    fn filters_to_dev_section_for_development_dependencies() {
+        let dependencies = vec![
+            dependency("tokio", DependencySection::Dependencies),
+            dependency("serde", DependencySection::DevDependencies),
+            dependency("cc", DependencySection::BuildDependencies),
+        ];
+
+        let filtered = filter_dependencies(dependencies, &cli(false, true, &[]));
+
+        assert_eq!(
+            filtered
+                .iter()
+                .map(|it| it.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["serde"]
+        );
+    }
+
+    #[test]
+    fn combines_dependency_sections_and_crate_filter() {
+        let dependencies = vec![
+            dependency("tokio", DependencySection::Dependencies),
+            dependency("serde", DependencySection::DevDependencies),
+            dependency("cc", DependencySection::BuildDependencies),
+        ];
+
+        let filtered = filter_dependencies(dependencies, &cli(true, false, &["cc", "serde"]));
+
+        assert_eq!(
+            filtered
+                .iter()
+                .map(|it| it.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["cc"]
+        );
     }
 
     #[test]

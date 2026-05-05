@@ -24,6 +24,8 @@ cargo install --path .
 cargo upgrade
 cargo upgrade --latest
 cargo upgrade --dry-run
+cargo upgrade --prod
+cargo upgrade --dev
 ```
 
 ## Current behavior
@@ -42,6 +44,10 @@ The current implementation:
 With `--latest`, the command ignores the current requirement and rewrites each dependency to the latest available release.
 
 With `--dry-run`, the command prints the planned changes without modifying `Cargo.toml`.
+
+With `--prod`, the command only scans dependencies used by normal builds: `dependencies` and `build-dependencies`.
+
+With `--dev`, the command only scans `dev-dependencies`.
 
 ## Command design
 

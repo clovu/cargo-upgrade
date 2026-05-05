@@ -38,18 +38,16 @@ pub struct Cli {
     #[arg(
         short = 'P',
         long,
-        hide = true,
         conflicts_with = "dev",
-        help = "Only upgrade production dependencies"
+        help = "Only upgrade dependencies used by normal builds"
     )]
     pub prod: bool,
 
     #[arg(
         short = 'D',
         long,
-        hide = true,
         conflicts_with = "prod",
-        help = "Only upgrade development dependencies"
+        help = "Only upgrade dev-dependencies"
     )]
     pub dev: bool,
 
