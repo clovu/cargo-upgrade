@@ -125,23 +125,31 @@ fn build_update_checklist_groups(
 ) -> Vec<ChecklistGroup> {
     grouped_updates
         .iter()
-        .map(|(section, updates)| ChecklistGroup {
-            title: section.display_name().to_owned(),
-            items: updates
-                .iter()
-                .map(|update| ChecklistItem {
-                    label: update.name.clone(),
-                    current: update.current_requirement.clone(),
-                    target: update.target_requirement.clone(),
-                    impact: classify_requirement_change(
-                        &update.current_requirement,
-                        &update.target_requirement,
-                    )
-                    .to_string(),
-                })
-                .collect(),
-        })
+        .map(|(section, updates)| build_update_checklist_group(*section, updates))
         .collect()
+}
+
+fn build_update_checklist_group(
+    section: DependencySection,
+    updates: &[DependencyUpdate],
+) -> ChecklistGroup {
+    ChecklistGroup {
+        title: section.display_name().to_owned(),
+        items: updates.iter().map(build_update_checklist_item).collect(),
+    }
+}
+
+fn build_update_checklist_item(update: &DependencyUpdate) -> ChecklistItem {
+    ChecklistItem {
+        label: update.name.clone(),
+        current: update.current_requirement.clone(),
+        target: update.target_requirement.clone(),
+        impact: classify_update_impact(update).to_owned(),
+    }
+}
+
+fn classify_update_impact(update: &DependencyUpdate) -> &'static str {
+    classify_requirement_change(&update.current_requirement, &update.target_requirement)
 }
 
 fn classify_requirement_change(current: &str, target: &str) -> &'static str {
