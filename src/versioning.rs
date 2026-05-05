@@ -10,9 +10,15 @@ pub(crate) fn choose_target_release(
     releases.sort();
 
     if use_latest {
-        return Ok(releases
-            .into_iter()
-            .rfind(|release| rewrite_requirement(requirement, release) != requirement.trim()));
+        let Some(release) = releases.pop() else {
+            return Ok(None);
+        };
+
+        if rewrite_requirement(requirement, &release) == requirement.trim() {
+            return Ok(None);
+        }
+
+        return Ok(Some(release));
     }
 
     let version_req = requirement.parse::<VersionReq>()?;
@@ -87,6 +93,36 @@ mod tests {
         .unwrap();
 
         assert_eq!(release, Some(Version::parse("2.0.0").unwrap()));
+    }
+
+    #[test]
+    fn does_not_downgrade_when_latest_release_is_already_selected() {
+        let release = choose_target_release(
+            "1.0.28",
+            vec![
+                Version::parse("1.0.27").unwrap(),
+                Version::parse("1.0.28").unwrap(),
+            ],
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(release, None);
+    }
+
+    #[test]
+    fn does_not_downgrade_prefixed_requirements_when_latest_release_is_already_selected() {
+        let release = choose_target_release(
+            "^1.0.28",
+            vec![
+                Version::parse("1.0.27").unwrap(),
+                Version::parse("1.0.28").unwrap(),
+            ],
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(release, None);
     }
 
     #[test]
