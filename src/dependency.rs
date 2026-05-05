@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) enum DependencySection {
     Dependencies,
     DevDependencies,
@@ -13,16 +13,24 @@ impl DependencySection {
             Self::BuildDependencies => "build-dependencies",
         }
     }
+
+    pub(crate) fn display_name(self) -> &'static str {
+        match self {
+            Self::Dependencies => "dependencies",
+            Self::DevDependencies => "devDependencies",
+            Self::BuildDependencies => "buildDependencies",
+        }
+    }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ManifestDependency {
     pub(crate) name: String,
     pub(crate) requirement: String,
     pub(crate) section: DependencySection,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct DependencyUpdate {
     pub(crate) name: String,
     pub(crate) section: DependencySection,

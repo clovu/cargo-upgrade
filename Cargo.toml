@@ -25,8 +25,14 @@ version = "0.0.1"
 [dependencies]
 cargo_toml = "0.22.3"
 clap = { version = "4.6.1", features = ["derive"] }
+console = "0.16.3"
 crates_io_api = "0.12.0"
+crossterm = "0.29.0"
 futures = "0.3.32"
+inquire = "0.9.4"
+inquire-derive = "0.9.4"
+ratatui = "0.30.0"
 semver = "1.0.28"
-tokio = { version = "1.51.0", features = ["macros", "rt-multi-thread"] }
-toml_edit = "0.25.10"
+tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread"] }
+toml_edit = "0.25.11+spec-1.1.0"
+unicode-width = "0.2.2"

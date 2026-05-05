@@ -5,7 +5,7 @@ use clap::Parser;
 #[command(
     name = "cargo-upgrade",
     version,
-    about = "Refresh dependency requirements in Cargo.toml.",
+    about = "Updates crates to their latest version based on the specified range. You can use \"*\" in crate name to update all crates with the same pattern.",
     long_about = "Refresh dependency requirements in Cargo.toml.\n\nThe current implementation checks crates.io, scans [dependencies], [dev-dependencies], and [build-dependencies], and rewrites dependency requirements in place when updates are available."
 )]
 pub struct Cli {
@@ -13,7 +13,7 @@ pub struct Cli {
         short = 'r',
         long,
         hide = true,
-        help = "Run recursively across workspace packages"
+        help = "Run recursively across workspace crates"
     )]
     pub recursive: bool,
 
@@ -32,7 +32,7 @@ pub struct Cli {
     )]
     pub global: bool,
 
-    #[arg(long, hide = true, help = "Prefer workspace packages when available")]
+    #[arg(long, hide = true, help = "Prefer workspace crates when available")]
     pub workspace: bool,
 
     #[arg(
@@ -56,7 +56,7 @@ pub struct Cli {
     #[arg(long, hide = true, help = "Skip optional dependencies")]
     pub no_optional: bool,
 
-    #[arg(short = 'i', long, hide = true, help = "Choose upgrades interactively")]
+    #[arg(short = 'i', long, help = "Choose upgrades interactively")]
     pub interactive: bool,
 
     #[arg(long, help = "Print the planned changes without modifying Cargo.toml")]
@@ -67,7 +67,7 @@ pub struct Cli {
         hide = true,
         value_name = "FILTER",
         action = ArgAction::Append,
-        help = "Filter target workspace packages (repeatable)"
+        help = "Filter target workspace crates (repeatable)"
     )]
     pub filter: Vec<String>,
 
@@ -75,14 +75,13 @@ pub struct Cli {
         long,
         hide = true,
         value_name = "N",
-        help = "Set recursion depth for package traversal"
+        help = "Set recursion depth for crate traversal"
     )]
     pub depth: Option<u32>,
 
     #[arg(
-        hide = true,
-        value_name = "PACKAGE",
-        help = "Only upgrade selected packages"
+        value_name = "CRATE",
+        help = "Only upgrade selected crates (repeatable)"
     )]
     pub crates: Vec<String>,
 }

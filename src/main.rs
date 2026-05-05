@@ -2,6 +2,7 @@ mod app;
 mod cli;
 mod dependency;
 mod error;
+mod grouped_checklist;
 mod manifest;
 mod registry;
 mod versioning;
