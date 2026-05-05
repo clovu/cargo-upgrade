@@ -9,10 +9,22 @@ pub(crate) struct VersionResolution {
     pub(crate) releases: std::result::Result<Vec<Version>, String>,
 }
 
-pub(crate) async fn fetch_available_releases(
+pub(crate) trait ReleaseFetchProgress {
+    fn dependency_finished(&self, dependency: &ManifestDependency);
+}
+
+impl ReleaseFetchProgress for () {
+    fn dependency_finished(&self, _dependency: &ManifestDependency) {}
+}
+
+pub(crate) async fn fetch_available_releases<P>(
     client: Arc<crates_io_api::AsyncClient>,
     dependencies: Vec<ManifestDependency>,
-) -> Vec<VersionResolution> {
+    progress: &P,
+) -> Vec<VersionResolution>
+where
+    P: ReleaseFetchProgress + ?Sized,
+{
     let mut tasks = futures::stream::FuturesUnordered::new();
 
     for dependency in dependencies {
@@ -37,6 +49,7 @@ pub(crate) async fn fetch_available_releases(
 
     let mut resolutions = Vec::new();
     while let Some(resolution) = tasks.next().await {
+        progress.dependency_finished(&resolution.dependency);
         resolutions.push(resolution);
     }
     resolutions

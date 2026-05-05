@@ -9,6 +9,8 @@ use crate::grouped_checklist::ChecklistItem;
 use crate::grouped_checklist::ChecklistSelection;
 use crate::grouped_checklist::run_checklist;
 use crate::manifest::LoadedManifest;
+use crate::progress::ReleaseFetchProgressBar;
+use crate::registry::VersionResolution;
 use crate::registry::fetch_available_releases;
 use crate::versioning::choose_target_release;
 use crate::versioning::rewrite_requirement;
@@ -61,7 +63,7 @@ async fn try_run(cli: Cli) -> Result<()> {
 
     let mut manifest = LoadedManifest::load()?;
     let dependencies = collect_filtered_dependencies(manifest.manifest(), &cli);
-    let releases = fetch_available_releases(Arc::new(new_registry_client()?), dependencies).await;
+    let releases = resolve_available_releases(dependencies).await?;
     let plan = build_upgrade_plan(releases, cli.latest)?;
 
     print_failures(&plan.failures);
@@ -94,6 +96,21 @@ async fn try_run(cli: Cli) -> Result<()> {
     print_updates(&updates);
 
     Ok(())
+}
+
+async fn resolve_available_releases(
+    dependencies: Vec<ManifestDependency>,
+) -> Result<Vec<VersionResolution>> {
+    if dependencies.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let client = Arc::new(new_registry_client()?);
+    let progress = ReleaseFetchProgressBar::new(dependencies.len());
+    let releases = fetch_available_releases(client, dependencies, &progress).await;
+    progress.finish();
+
+    Ok(releases)
 }
 
 fn select_updates_interactively(updates: &[DependencyUpdate]) -> Result<Vec<DependencyUpdate>> {

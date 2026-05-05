@@ -4,6 +4,7 @@ mod dependency;
 mod error;
 mod grouped_checklist;
 mod manifest;
+mod progress;
 mod registry;
 mod versioning;
 
