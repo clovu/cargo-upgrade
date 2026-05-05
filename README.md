@@ -1,8 +1,10 @@
 # cargo-upgrade
 
-`cargo-upgrade` is a Cargo subcommand inspired by `pnpm upgrade`, designed for Rust manifests and Cargo workflows.
+`cargo-upgrade` is a Cargo subcommand for refreshing dependency version requirements in `Cargo.toml`.
 
-It refreshes dependency requirements in `Cargo.toml` by checking crates.io, selecting newer releases, and rewriting the manifest when needed.
+It is inspired by the ergonomics of `pnpm upgrade`: inspect the dependencies in a project, resolve newer crate releases from crates.io, then rewrite manifest requirements when an upgrade is available.
+
+The tool changes dependency requirements in `Cargo.toml`. It is not a wrapper around `cargo update`, and it is not limited to updating `Cargo.lock`.
 
 ## Installation
 
@@ -18,85 +20,238 @@ cd cargo-upgrade
 cargo install --path .
 ```
 
-## Usage
+After installation, Cargo can run the binary as a subcommand:
 
 ```bash
 cargo upgrade
-cargo upgrade --latest
-cargo upgrade --dry-run
-cargo upgrade --prod
-cargo upgrade --dev
 ```
 
-## Current behavior
+## Quick Start
+
+```bash
+cargo upgrade
+cargo upgrade --dry-run
+cargo upgrade --latest
+cargo upgrade --interactive
+cargo upgrade --prod
+cargo upgrade --dev
+cargo upgrade serde tokio
+```
+
+## What It Does
 
 The current implementation:
 
-1. Reads `Cargo.toml` from the current directory.
-2. Scans these dependency sections:
-   - `dependencies`
-   - `dev-dependencies`
-   - `build-dependencies`
+1. Reads `Cargo.toml` from the current crate root.
+2. Collects dependencies from the top-level dependency tables:
+   - `[dependencies]`
+   - `[dev-dependencies]`
+   - `[build-dependencies]`
 3. Queries crates.io for available releases.
-4. Chooses the newest compatible release for each dependency by default.
-5. Rewrites the dependency requirement in `Cargo.toml`.
+4. Chooses a target version for each dependency.
+5. Rewrites only the dependency requirement in `Cargo.toml`.
 
-With `--latest`, the command ignores the current requirement and rewrites each dependency to the latest available release.
+The dependency-table model is intended to grow beyond those top-level tables. Planned coverage includes target-specific dependency tables such as `[target.'cfg(target_os = "windows")'.dependencies]`, plus the corresponding target-specific `dev-dependencies` and `build-dependencies` tables.
 
-With `--dry-run`, the command prints the planned changes without modifying `Cargo.toml`.
-
-With `--prod`, the command only scans dependencies used by normal builds: `dependencies` and `build-dependencies`.
-
-With `--dev`, the command only scans `dev-dependencies`.
-
-## Command design
-
-This project aims to make `cargo upgrade` feel like `pnpm upgrade`, while still fitting Cargo manifest structure and Rust workflow expectations.
-
-The codebase is organized around that shape: command flow, manifest ownership, release resolution, and requirement-rewrite policy.
-
-## Requirement behavior
-
-By default, `cargo-upgrade` keeps the style of the current requirement while selecting the newest compatible release it can use.
-
-Examples:
-
-- `serde = "1.0"` is refreshed within the current requirement logic.
-- `tokio = "~1.0"` keeps the `~` operator.
-- `clap = "=4.5.0"` keeps the `=` operator.
-- `foo = "*"` becomes a concrete caret requirement for the selected release.
-
-## Manifest behavior
-
-`cargo-upgrade` rewrites `Cargo.toml` only when changes are needed.
-
-It preserves both of these forms:
-
-```toml
-serde = "1.0.219"
-```
+For inline-table dependencies, only the `version` field is changed:
 
 ```toml
 tokio = { version = "1.44.2", features = ["rt-multi-thread", "macros"] }
 ```
 
-For inline-table dependencies, only the `version` field is rewritten.
+becomes:
 
-## Current limitations
+```toml
+tokio = { version = "1.52.2", features = ["rt-multi-thread", "macros"] }
+```
 
-The current implementation does not yet cover the full long-term command vision.
+Other fields, such as `features`, `optional`, `default-features`, and similar manifest settings, are preserved.
 
-Notable limitations today:
+## Version Requirement Behavior
+
+By default, `cargo-upgrade` chooses the newest release that still satisfies the current version requirement.
+
+Examples:
+
+```toml
+serde = "1.0"
+tokio = "~1.2.0"
+clap = "=4.5.0"
+```
+
+With the default mode:
+
+- `serde = "1.0"` can move to a newer `1.x` release allowed by the requirement.
+- `tokio = "~1.2.0"` stays inside the compatible tilde range.
+- `clap = "=4.5.0"` keeps exact-version semantics.
+
+With `--latest`, the command ignores the current requirement range and targets the newest release available from crates.io. It still preserves the visible requirement style when rewriting:
+
+```toml
+tokio = "~1.2.0"
+```
+
+can become:
+
+```toml
+tokio = "~1.52.2"
+```
+
+If the current requirement already points at the latest release, no update is produced.
+
+The wildcard requirement `*` is rewritten to a concrete caret requirement for the selected release.
+
+## Command Options
+
+Status meanings:
+
+- `Implemented`: supported by the current runtime.
+- `Defined, not implemented`: accepted by the CLI definition, but rejected before upgrade work begins.
+- `Built in`: generated by `clap`.
+
+| Option | Status | Description |
+|---|---|---|
+| `[CRATE]...` | Implemented | Upgrade only the named crates. Matching is exact by dependency key. Repeatable. |
+| `-L`, `--latest` | Implemented | Ignore the current requirement range and target the latest available crates.io release. |
+| `--dry-run` | Implemented | Print planned changes without writing `Cargo.toml`. |
+| `-i`, `--interactive` | Implemented | Open a tree-style TUI for selecting which upgrades to apply. |
+| `-P`, `--prod` | Implemented | Upgrade production dependency groups. Today this means top-level `[dependencies]` and `[build-dependencies]`; target-specific production groups are planned. Conflicts with `--dev`. |
+| `-D`, `--dev` | Implemented | Upgrade development dependency groups. Today this means top-level `[dev-dependencies]`; target-specific development groups are planned. Conflicts with `--prod`. |
+| `-r`, `--recursive` | Defined, not implemented | Intended for recursive workspace traversal. Currently rejected. |
+| `-g`, `--global` | Defined, not implemented | Intended for upgrading globally installed Cargo binary crates. Currently rejected. |
+| `--workspace` | Defined, not implemented | Intended for workspace-aware behavior. Currently rejected. |
+| `--no-optional` | Defined, not implemented | Intended to skip optional dependencies. Currently rejected. |
+| `--filter <FILTER>` | Defined, not implemented | Intended to filter target workspace crates. Repeatable. Currently rejected. |
+| `--depth <N>` | Defined, not implemented | Intended to limit recursive traversal depth. Currently rejected. |
+| `-h`, `--help` | Built in | Print help text. |
+| `-V`, `--version` | Built in | Print the package version. |
+
+## Option Details
+
+### Selecting Crates
+
+Pass crate names as positional arguments:
+
+```bash
+cargo upgrade serde tokio
+```
+
+This filters by the dependency key in `Cargo.toml`.
+
+Pattern matching and wildcard crate-name filters are not implemented yet.
+
+### Latest Mode
+
+```bash
+cargo upgrade --latest
+```
+
+This mode targets the newest release available from crates.io, even if it is outside the current requirement range.
+
+### Dry Run
+
+```bash
+cargo upgrade --dry-run
+```
+
+This prints the upgrade plan and leaves `Cargo.toml` unchanged.
+
+### Interactive Mode
+
+```bash
+cargo upgrade --interactive
+```
+
+or:
+
+```bash
+cargo upgrade -i
+```
+
+Interactive mode opens a TUI with a tree layout:
+
+```text
+dependencies
+  serde
+  tokio
+
+devDependencies
+  insta
+
+buildDependencies
+  cc
+```
+
+The tree groups upgrades by dependency section. The detail panel shows the current requirement, target requirement, impact classification, and selected state for the current node.
+
+Common keys:
+
+| Key | Action |
+|---|---|
+| `Up`, `Down`, `j`, `k` | Move cursor |
+| `Left`, `Right`, `h`, `l` | Collapse or expand sections |
+| `e` | Toggle section expansion |
+| `Space` | Toggle selected upgrade or whole section |
+| `a` | Select all or select none |
+| `i` | Invert selection |
+| `Enter` | Apply selected upgrades |
+| `Esc`, `q`, `Ctrl-C` | Cancel |
+
+### Production Dependencies
+
+```bash
+cargo upgrade --prod
+```
+
+This scans production dependency groups. Today that includes:
+
+- `[dependencies]`
+- `[build-dependencies]`
+
+It skips development dependency groups. Target-specific production dependency tables are planned but not scanned yet.
+
+### Development Dependencies
+
+```bash
+cargo upgrade --dev
+```
+
+This scans development dependency groups. Today that includes:
+
+- `[dev-dependencies]`
+
+Target-specific development dependency tables are planned but not scanned yet.
+
+## Current Limitations
+
+`cargo-upgrade` is still early and intentionally conservative.
+
+Current limitations:
 
 - It must be run from a crate root containing `Cargo.toml`.
-- Inherited dependencies are skipped.
+- Workspace-recursive upgrades are not implemented.
+- Target-specific dependency sections, such as `[target.'cfg(target_os = "windows")'.dependencies]`, are not scanned yet.
+- Inherited workspace dependencies are skipped.
 - Dependencies without an explicit version field are skipped.
 - crates.io lookup failures are reported, but do not stop the whole run.
-- Workspace-recursive flows, interactive upgrades, filtering, and package targeting are not implemented yet.
+- Only crates.io release lookup is supported.
+- Optional dependency filtering is not implemented.
+- Global Cargo binary crate upgrades are not implemented.
+- Positional crate filters use exact names only. Patterns and globs are not implemented.
 
-## Product direction
+## Project Direction
 
-The long-term goal is a `cargo upgrade` experience that feels as natural in Rust projects as `pnpm upgrade` does in JavaScript projects.
+The goal is to make upgrading Rust dependency requirements feel as natural as `pnpm upgrade` does in JavaScript projects, while respecting Cargo manifest structure and Rust workflow expectations.
+
+Long-term areas include:
+
+- Workspace traversal.
+- Workspace-aware filtering.
+- Target-specific dependency tables.
+- Global Cargo binary crate upgrades.
+- Optional dependency filtering.
+- Better source handling for non-crates.io dependencies.
+- Richer interactive review.
 
 ## License
 
