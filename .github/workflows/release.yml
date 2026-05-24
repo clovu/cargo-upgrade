@@ -26,7 +26,7 @@ jobs:
     steps:
       # Fetch the repository so Rust commands can inspect the workspace.
       - name: Check out source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Install the stable Rust toolchain and the components required for linting.
       - name: Install Rust toolchain
@@ -80,7 +80,7 @@ jobs:
     steps:
       # Fetch the repository content used by the build.
       - name: Check out source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Install the stable Rust compiler used for release builds.
       - name: Install Rust toolchain
@@ -184,7 +184,7 @@ jobs:
 
       # Store each packaged artifact in the workflow run for easy manual download.
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.platform }}
           path: dist/${{ steps.bundle.outputs.archive_base }}.${{ matrix.archive_ext }}
@@ -203,7 +203,7 @@ jobs:
     steps:
       # Download all archives produced by the matrix build jobs.
       - name: Download packaged artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: release-assets
@@ -211,7 +211,7 @@ jobs:
 
       # Create or update the GitHub Release, upload assets, and auto-generate release notes.
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
