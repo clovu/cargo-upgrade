@@ -1,0 +1,47 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+//
+// Cargo invokes the binary as `cargo-upgrade upgrade ...`, so every run
+// passes `upgrade` first. `--dry-run` keeps this project's Cargo.toml intact.
+[
+  {
+    "label": "cargo upgrade --dry-run",
+    "adapter": "CodeLLDB",
+    "request": "launch",
+    "build": {
+      "command": "cargo",
+      "args": ["build"]
+    },
+    "program": "$ZED_WORKTREE_ROOT/target/debug/cargo-upgrade",
+    "args": ["upgrade", "--dry-run"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "sourceLanguages": ["rust"]
+  },
+  {
+    "label": "cargo upgrade --latest --dry-run",
+    "adapter": "CodeLLDB",
+    "request": "launch",
+    "build": {
+      "command": "cargo",
+      "args": ["build"]
+    },
+    "program": "$ZED_WORKTREE_ROOT/target/debug/cargo-upgrade",
+    "args": ["upgrade", "--latest", "--dry-run"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "sourceLanguages": ["rust"]
+  },
+  {
+    "label": "cargo test",
+    "adapter": "CodeLLDB",
+    "request": "launch",
+    // Zed locates the test binary from the `cargo test` build command.
+    "build": {
+      "command": "cargo",
+      "args": ["test"]
+    },
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "sourceLanguages": ["rust"]
+  }
+]
